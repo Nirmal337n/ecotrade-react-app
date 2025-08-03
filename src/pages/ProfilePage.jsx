@@ -15,6 +15,8 @@ const ProfilePage = () => {
     const [formData, setFormData] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [posts, setPosts] = useState([]);
+    const [products, setProducts] = useState([]);
     const token = localStorage.getItem('token');
 
     useEffect(() => {
@@ -25,7 +27,6 @@ const ProfilePage = () => {
             if (res.ok) {
                 const data = await res.json();
                 setCurrentUser(data);
-                // If no userId is specified in URL, we are viewing our own profile
                 if (!userId) {
                     setUser(data);
                     setFormData(data);
@@ -36,7 +37,7 @@ const ProfilePage = () => {
         };
 
         const fetchUser = async () => {
-            if (!userId) return; // Handled by fetchCurrentUser
+            if (!userId) return;
             try {
                 const res = await fetch(`${API_BASE_URL}/users/${userId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -50,17 +51,50 @@ const ProfilePage = () => {
             }
         };
 
+        const fetchPosts = async (uid) => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/posts?user=${uid}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setPosts(data);
+                }
+            } catch {}
+        };
+
+        const fetchProducts = async (uid) => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/products/user/${uid}?status=completed&type=sell,giveaway`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setProducts(data);
+                }
+            } catch {}
+        };
+
         const fetchAllData = async () => {
             setLoading(true);
             await fetchCurrentUser();
+            let uid = userId;
+            if (!uid && currentUser) uid = currentUser._id;
             if (userId) {
                 await fetchUser();
             }
-            setLoading(false);
+            // Wait for user to be set
+            setTimeout(async () => {
+                const uidToFetch = userId || (currentUser && currentUser._id);
+                if (uidToFetch) {
+                    await fetchPosts(uidToFetch);
+                    await fetchProducts(uidToFetch);
+                }
+                setLoading(false);
+            }, 100);
         };
-        
-        fetchAllData();
 
+        fetchAllData();
     }, [userId, token, navigate]);
 
     const handleInputChange = (e) => {
@@ -186,6 +220,39 @@ const ProfilePage = () => {
                                 </div>
                             </div>
                         </div>
+                    )}
+                </div>
+                {/* User Posts Section */}
+                <div className="profile-section">
+                    <h2>User's Posts</h2>
+                    {posts.length === 0 ? (
+                        <div className="profile-empty">No posts found.</div>
+                    ) : (
+                        <ul className="profile-list">
+                            {posts.map(post => (
+                                <li key={post._id} className="profile-list-item">
+                                    <div><b>{post.content?.slice(0, 60) || post.title}</b></div>
+                                    <div style={{ fontSize: '0.9em', color: '#888' }}>{new Date(post.createdAt).toLocaleString()}</div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+                {/* Marketplace History Section */}
+                <div className="profile-section">
+                    <h2>Marketplace History (Sold/Giveaway)</h2>
+                    {products.length === 0 ? (
+                        <div className="profile-empty">No marketplace history found.</div>
+                    ) : (
+                        <ul className="profile-list">
+                            {products.map(product => (
+                                <li key={product._id} className="profile-list-item">
+                                    <div><b>{product.title}</b> ({product.type})</div>
+                                    <div style={{ fontSize: '0.9em', color: '#888' }}>{new Date(product.createdAt).toLocaleString()}</div>
+                                    {product.sell_price && <div>Sold for: {product.sell_price}</div>}
+                                </li>
+                            ))}
+                        </ul>
                     )}
                 </div>
             </div>

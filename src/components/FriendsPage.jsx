@@ -12,7 +12,7 @@ const FriendsPage = () => {
   const [requestsReceived, setRequestsReceived] = useState([]);
   const [requestsSent, setRequestsSent] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
+  const [searchResults, setSearchResults] = useState({ exact: [], similar: [] });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -24,6 +24,8 @@ const FriendsPage = () => {
   const [chatMessages, setChatMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [socket, setSocket] = useState(null);
+  const [recommended, setRecommended] = useState([]);
+  const [searchTimeout, setSearchTimeout] = useState(null);
 
   const token = localStorage.getItem('token');
   const navigate = useNavigate();
@@ -35,6 +37,9 @@ const FriendsPage = () => {
     return () => {
       if (socket) {
         socket.disconnect();
+      }
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
       }
     };
   }, []);
@@ -63,37 +68,55 @@ const FriendsPage = () => {
   const loadFriendsData = async () => {
     try {
       setLoading(true);
-      const [friendsRes, sentRes, receivedRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/friends`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        fetch(`${API_BASE_URL}/friends/requests/sent`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        fetch(`${API_BASE_URL}/friends/requests/received`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-      ]);
+      setError(''); // Clear any previous errors
+      
+      // First try to get all friends data from the main endpoint
+      const friendsRes = await fetch(`${API_BASE_URL}/friends/friends`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
       if (friendsRes.ok) {
         const friendsData = await friendsRes.json();
-        setFriends(friendsData);
-      }
+        console.log('Friends data received:', friendsData); // Debug log
+        
+        // Set friends, requests received, and requests sent from the response
+        setFriends(friendsData.friends || []);
+        setRequestsReceived(friendsData.requestsReceived || []);
+        setRequestsSent(friendsData.requestsSent || []);
+      } else {
+        console.error('Failed to load friends:', friendsRes.status, friendsRes.statusText);
+        const errorData = await friendsRes.json().catch(() => ({}));
+        setError(errorData.message || 'Failed to load friends data');
+        
+        // Fallback: try individual endpoints
+        try {
+          const [sentRes, receivedRes] = await Promise.all([
+            fetch(`${API_BASE_URL}/friends/requests/sent`, {
+              headers: { Authorization: `Bearer ${token}` }
+            }),
+            fetch(`${API_BASE_URL}/friends/requests/received`, {
+              headers: { Authorization: `Bearer ${token}` }
+            })
+          ]);
 
-      if (sentRes.ok) {
-        const sentData = await sentRes.json();
-        console.log('Sent requests data:', sentData); // Debug log
-        setRequestsSent(sentData);
-      }
+          if (sentRes.ok) {
+            const sentData = await sentRes.json();
+            console.log('Sent requests data:', sentData); // Debug log
+            setRequestsSent(sentData);
+          }
 
-      if (receivedRes.ok) {
-        const receivedData = await receivedRes.json();
-        console.log('Received requests data:', receivedData); // Debug log
-        setRequestsReceived(receivedData);
+          if (receivedRes.ok) {
+            const receivedData = await receivedRes.json();
+            console.log('Received requests data:', receivedData); // Debug log
+            setRequestsReceived(receivedData);
+          }
+        } catch (fallbackErr) {
+          console.error('Fallback request failed:', fallbackErr);
+        }
       }
     } catch (err) {
       console.error('Error loading friends data:', err);
-      setError('Failed to load friends data');
+      setError('Failed to load friends data. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -101,23 +124,65 @@ const FriendsPage = () => {
 
   const searchUsers = async () => {
     if (!searchQuery.trim() || searchQuery.length < 2) return;
-    
     try {
       setLoading(true);
       const response = await fetch(`${API_BASE_URL}/friends/search?query=${encodeURIComponent(searchQuery)}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
       if (!response.ok) throw new Error('Failed to search users');
-      
       const data = await response.json();
-      setSearchResults(data);
+      
+      // Process search results to categorize exact and similar matches
+      const users = data.users || [];
+      const exactMatches = [];
+      const similarMatches = [];
+      
+      users.forEach(user => {
+        const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
+        const query = searchQuery.toLowerCase();
+        
+        // Check for exact matches
+        if (user.firstName.toLowerCase() === query || 
+            user.lastName.toLowerCase() === query || 
+            user.email.toLowerCase() === query ||
+            fullName === query) {
+          exactMatches.push(user);
+        } else {
+          similarMatches.push(user);
+        }
+      });
+      
+      setSearchResults({ exact: exactMatches, similar: similarMatches });
+      setRecommended(data.recommended || []);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
+
+  // Fetch recommended friends on mount or when switching to search tab with no query
+  useEffect(() => {
+    if (activeTab === 'search' && (!searchQuery || searchQuery.length < 2)) {
+      const fetchRecommended = async () => {
+        setLoading(true);
+        try {
+          const response = await fetch(`${API_BASE_URL}/friends/search`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (!response.ok) throw new Error('Failed to fetch recommendations');
+          const data = await response.json();
+          setRecommended(data.recommended || []);
+          setSearchResults({ exact: [], similar: [] });
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchRecommended();
+    }
+  }, [activeTab, searchQuery]);
 
   const openRequestModal = (user) => {
     setSelectedUser(user);
@@ -148,7 +213,15 @@ const FriendsPage = () => {
       }
       
       setSuccess('Friend request sent successfully!');
-      setSearchResults(prev => prev.filter(user => user._id !== userId));
+      // Update the user's status in search results
+      setSearchResults(prev => ({
+        exact: prev.exact.map(user => 
+          user._id === userId ? { ...user, friendshipStatus: 'request_sent' } : user
+        ),
+        similar: prev.similar.map(user => 
+          user._id === userId ? { ...user, friendshipStatus: 'request_sent' } : user
+        )
+      }));
       closeRequestModal();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
@@ -339,6 +412,166 @@ const FriendsPage = () => {
     searchUsers();
   };
 
+  const handleSearchInputChange = (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    
+    // Clear previous timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    
+    // Set new timeout for debounced search
+    if (query.length >= 2) {
+      const timeout = setTimeout(() => {
+        searchUsers();
+      }, 500); // 500ms delay
+      setSearchTimeout(timeout);
+    } else {
+      // Clear results if query is too short
+      setSearchResults({ exact: [], similar: [] });
+    }
+  };
+
+  // Handle accepting friend request from search results
+  const acceptFriendRequestFromSearch = async (userId) => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const response = await fetch(`${API_BASE_URL}/friends/accept/${userId}`, {
+        method: 'POST',
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}: Failed to accept friend request`);
+      }
+      
+      setSuccess('Friend request accepted successfully! You are now friends.');
+      
+      // Update the user's status in search results
+      setSearchResults(prev => ({
+        exact: prev.exact.map(user => 
+          user._id === userId ? { ...user, friendshipStatus: 'friends' } : user
+        ),
+        similar: prev.similar.map(user => 
+          user._id === userId ? { ...user, friendshipStatus: 'friends' } : user
+        )
+      }));
+      
+      await loadFriendsData(); // Refresh the data to show new friend
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Error accepting friend request:', err);
+      setError(err.message || 'Failed to accept friend request');
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Render action buttons based on friendship status
+  const renderActionButtons = (user) => {
+    switch (user.friendshipStatus) {
+      case 'friends':
+        return (
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              className="btn btn-secondary"
+              onClick={() => navigate(`/profile/${user._id}`)}
+            >
+              View Profile
+            </button>
+            <button
+              className="btn btn-success"
+              onClick={() => startChat(user)}
+            >
+              Send Message
+            </button>
+          </div>
+        );
+      case 'request_sent':
+        return (
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              className="btn btn-secondary"
+              onClick={() => navigate(`/profile/${user._id}`)}
+            >
+              View Profile
+            </button>
+            <span className="status-badge sent">Request Sent</span>
+          </div>
+        );
+      case 'request_received':
+        return (
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              className="btn btn-secondary"
+              onClick={() => navigate(`/profile/${user._id}`)}
+            >
+              View Profile
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => acceptFriendRequestFromSearch(user._id)}
+            >
+              Accept Request
+            </button>
+            <span className="status-badge received">Request Received</span>
+          </div>
+        );
+      default:
+        return (
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button 
+              className="btn btn-primary"
+              onClick={() => openRequestModal(user)}
+            >
+              Add Friend
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => navigate(`/profile/${user._id}`)}
+            >
+              View Profile
+            </button>
+          </div>
+        );
+    }
+  };
+
+  // Add cancelFriendRequest function
+  const cancelFriendRequest = async (userId) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/friends/cancel-request`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ recipientId: userId }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to cancel friend request');
+      }
+      setRequestsSent(prev => prev.filter(user => user._id !== userId));
+      setSuccess('Friend request cancelled.');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.message);
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="friends-page">
       <Header />
@@ -351,7 +584,10 @@ const FriendsPage = () => {
         <div className="friends-tabs">
           <button 
             className={`tab ${activeTab === 'friends' ? 'active' : ''}`}
-            onClick={() => setActiveTab('friends')}
+            onClick={() => {
+              setActiveTab('friends');
+              loadFriendsData(); // Refresh friends when tab is clicked
+            }}
           >
             Friends ({friends.length})
           </button>
@@ -378,6 +614,17 @@ const FriendsPage = () => {
         <div className="friends-content">
           {activeTab === 'friends' && (
             <div className="friends-list">
+              {console.log('Rendering friends section, friends count:', friends.length)} {/* Debug log */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3>Your Friends ({friends.length})</h3>
+                <button 
+                  className="btn btn-secondary"
+                  onClick={loadFriendsData}
+                  disabled={loading}
+                >
+                  {loading ? 'Refreshing...' : 'Refresh'}
+                </button>
+              </div>
               {loading ? (
                 <div className="loading">Loading friends...</div>
               ) : friends.length === 0 ? (
@@ -467,7 +714,7 @@ const FriendsPage = () => {
                           </p>
                         </div>
                       </div>
-                      <div className="request-actions">
+                      <div className="request-actions" style={{ display: 'flex', gap: '10px' }}>
                         <button 
                           className="btn btn-primary"
                           onClick={() => acceptFriendRequest(request._id)}
@@ -479,6 +726,13 @@ const FriendsPage = () => {
                           onClick={() => rejectFriendRequest(request._id)}
                         >
                           Reject
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          onClick={() => navigate(`/profile/${request.sender?._id}`)}
+                          disabled={!request.sender?._id}
+                        >
+                          View Profile
                         </button>
                       </div>
                     </div>
@@ -495,22 +749,38 @@ const FriendsPage = () => {
               ) : requestsSent.length === 0 ? (
                 <div className="empty-state">No sent friend requests</div>
               ) : (
-                requestsSent.map(request => (
-                  <div key={request._id} className="request-item">
-                    <div className="request-info">
-                      <img 
-                        src={request.profilePicture || '/default-avatar.png'} 
-                        alt={`${request.firstName} ${request.lastName}`}
-                        className="request-avatar"
-                      />
-                      <div className="request-details">
-                        <h3>{request.firstName} {request.lastName}</h3>
-                        <p>{request.email}</p>
-                        <p className="request-status">Request sent - pending response</p>
+                <>
+                  {requestsSent.map(request => (
+                    <div key={request._id} className="request-item">
+                      <div className="request-info">
+                        <img 
+                          src={request.recipient?.profilePicture || '/default-avatar.png'} 
+                          alt={`${request.recipient?.firstName || ''} ${request.recipient?.lastName || ''}`}
+                          className="request-avatar"
+                        />
+                        <div className="request-details">
+                          <h3>{request.recipient?.firstName} {request.recipient?.lastName}</h3>
+                          <p>{request.recipient?.email}</p>
+                          <p className="request-status">Request sent - pending response</p>
+                        </div>
+                      </div>
+                      <div className="request-actions" style={{ display: 'flex', gap: '10px' }}>
+                        <button
+                          className="btn btn-secondary"
+                          onClick={() => navigate(`/profile/${request.recipient?._id}`)}
+                        >
+                          View Profile
+                        </button>
+                        <button
+                          className="btn btn-danger"
+                          onClick={() => cancelFriendRequest(request.recipient?._id)}
+                        >
+                          Cancel Request
+                        </button>
                       </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+                </>
               )}
             </div>
           )}
@@ -521,10 +791,11 @@ const FriendsPage = () => {
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={handleSearchInputChange}
                   placeholder="Search by name or email..."
-                  className="search-input"
+                  className="search-input long-input"
                   minLength={2}
+                  style={{ width: '400px', maxWidth: '90%' }}
                 />
                 <button 
                   type="submit" 
@@ -537,10 +808,77 @@ const FriendsPage = () => {
 
               {loading && <div className="loading">Searching for users...</div>}
 
-              {!loading && searchResults.length > 0 && (
+              {!loading && (searchResults.exact?.length > 0 || searchResults.similar?.length > 0) && (
                 <div className="search-results">
-                  <h3>Search Results</h3>
-                  {searchResults.map(user => (
+                  {/* Exact Matches */}
+                  {searchResults.exact?.length > 0 && (
+                    <div className="exact-matches">
+                      <h3>
+                        <span className="match-badge exact">✓</span>
+                        Exact Matches for "{searchQuery}" ({searchResults.exact.length})
+                      </h3>
+                      {searchResults.exact.map(user => (
+                        <div key={user._id} className="search-result-item exact-match">
+                          <div className="user-info">
+                            <img 
+                              src={user.profilePicture || '/default-avatar.png'} 
+                              alt={`${user.firstName} ${user.lastName}`}
+                              className="user-avatar"
+                            />
+                            <div className="user-details">
+                              <h3>{user.firstName} {user.lastName}</h3>
+                              <p>{user.email}</p>
+                              {user.bio && <p className="user-bio">{user.bio}</p>}
+                            </div>
+                          </div>
+                          {renderActionButtons(user)}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Similar Matches */}
+                  {searchResults.similar?.length > 0 && (
+                    <div className="similar-matches">
+                      <h3>
+                        <span className="match-badge similar">~</span>
+                        Similar Matches for "{searchQuery}" ({searchResults.similar.length})
+                      </h3>
+                      {searchResults.similar.map(user => (
+                        <div key={user._id} className="search-result-item similar-match">
+                          <div className="user-info">
+                            <img 
+                              src={user.profilePicture || '/default-avatar.png'} 
+                              alt={`${user.firstName} ${user.lastName}`}
+                              className="user-avatar"
+                            />
+                            <div className="user-details">
+                              <h3>{user.firstName} {user.lastName}</h3>
+                              <p>{user.email}</p>
+                              {user.bio && <p className="user-bio">{user.bio}</p>}
+                            </div>
+                          </div>
+                          {renderActionButtons(user)}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* No search results message */}
+              {!loading && searchQuery.length >= 2 && searchResults.exact?.length === 0 && searchResults.similar?.length === 0 && (
+                <div className="empty-state">
+                  <p>No users found matching "{searchQuery}"</p>
+                  <p>Try searching with a different name or email address.</p>
+                </div>
+              )}
+
+              {/* Recommended friends section */}
+              {!loading && recommended.length > 0 && (
+                <div className="search-results recommended-results">
+                  <h3>Recommended Friends</h3>
+                  {recommended.map(user => (
                     <div key={user._id} className="search-result-item">
                       <div className="user-info">
                         <img 
@@ -552,14 +890,12 @@ const FriendsPage = () => {
                           <h3>{user.firstName} {user.lastName}</h3>
                           <p>{user.email}</p>
                           {user.bio && <p className="user-bio">{user.bio}</p>}
+                          {user.interests && user.interests.length > 0 && (
+                            <p className="user-bio"><b>Interests:</b> {user.interests.join(', ')}</p>
+                          )}
                         </div>
                       </div>
-                      <button 
-                        className="btn btn-primary"
-                        onClick={() => openRequestModal(user)}
-                      >
-                        Add Friend
-                      </button>
+                      {renderActionButtons(user)}
                     </div>
                   ))}
                 </div>

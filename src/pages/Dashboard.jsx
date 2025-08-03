@@ -21,7 +21,10 @@ const Dashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [reportingPost, setReportingPost] = useState(null);
   const [showReportOptions, setShowReportOptions] = useState(false);
-
+  const [notifications, setNotifications] = useState([
+    // Example notifications (replace with your actual notifications state/prop)
+    // { message: 'Your offer for "Product" has been agreed.', date: '8/2/2025' },
+  ]);
 
   const token = localStorage.getItem('token');
 
@@ -220,261 +223,334 @@ const Dashboard = () => {
   return (
     <div>
       <Header />
-      <div className="container">
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginBottom: '18px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              style={{background: 'linear-gradient(135deg, #667eea 0%, #22c55e 100%)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.7rem 1.5rem', fontWeight: 600, fontSize: '1.1rem', cursor: 'pointer', boxShadow: '0 2px 8px rgba(102,126,234,0.10)'}}
-            >
-              + Create Post
-            </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', border: '2px solid #e5e7eb' }}>
-                <button 
-                  onClick={() => setPostFilter('recommended')}
-                  style={{
-                    padding: '8px 16px',
-                    border: 'none',
-                    background: postFilter === 'recommended' ? 'linear-gradient(135deg, #667eea 0%, #22c55e 100%)' : '#f9fafb',
-                    color: postFilter === 'recommended' ? 'white' : '#374151',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    fontSize: '14px'
-                  }}
-                >
-                  🎯 Recommended
-                </button>
-                <button 
-                  onClick={() => setPostFilter('friends')}
-                  style={{
-                    padding: '8px 16px',
-                    border: 'none',
-                    background: postFilter === 'friends' ? 'linear-gradient(135deg, #667eea 0%, #22c55e 100%)' : '#f9fafb',
-                    color: postFilter === 'friends' ? 'white' : '#374151',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    fontSize: '14px'
-                  }}
-                >
-                  👥 Friends
-                </button>
-                <button 
-                  onClick={() => setPostFilter('all')}
-                  style={{
-                    padding: '8px 16px',
-                    border: 'none',
-                    background: postFilter === 'all' ? 'linear-gradient(135deg, #667eea 0%, #22c55e 100%)' : '#f9fafb',
-                    color: postFilter === 'all' ? 'white' : '#374151',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    fontSize: '14px'
-                  }}
-                >
-                  🌐 All Posts
-                </button>
-              </div>
+      <div className="container" style={{ display: 'flex', flexDirection: 'row' }}>
+        <div className="main-content" style={{ flex: 1, padding: '0 16px' }}>
+          <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginBottom: '18px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
               <button 
-                onClick={fetchPosts} 
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: '4px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #22c55e 0%, #667eea 100%)',
-                  color: 'white',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(34,197,94,0.10)'
-                }}
+                onClick={() => setIsModalOpen(true)}
+                style={{background: 'linear-gradient(135deg, #667eea 0%, #22c55e 100%)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.7rem 1.5rem', fontWeight: 600, fontSize: '1.1rem', cursor: 'pointer', boxShadow: '0 2px 8px rgba(102,126,234,0.10)'}}
               >
-                🔄 Refresh
+                + Create Post
               </button>
-            </div>
-          </div>
-        </div>
-
-        <h3>
-          {postFilter === 'recommended' && '🎯 Recommended Posts'}
-          {postFilter === 'friends' && '👥 Friends Posts'}
-          {postFilter === 'all' && '🌐 All Posts'}
-        </h3>
-        {error && <div style={{ color: 'red', marginBottom: 16 }}>{error}</div>}
-        {loading ? <div>Loading...</div> : (
-          <div id="posts-container">
-            {posts.filter(post => post.user && post.user._id !== myId).length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-                <h4>
-                  {postFilter === 'recommended' && 'No recommendations yet'}
-                  {postFilter === 'friends' && 'No friends posts yet'}
-                  {postFilter === 'all' && 'No posts available'}
-                </h4>
-                <p>
-                  {postFilter === 'recommended' && 'Start interacting with posts (like, comment, create) to get personalized recommendations!'}
-                  {postFilter === 'friends' && 'Add some friends or wait for them to create posts!'}
-                  {postFilter === 'all' && 'Be the first to create a post!'}
-                </p>
-              </div>
-            ) : (
-              posts.filter(post => post.user && post.user._id !== myId).map((post, index) => (
-              <div className="card" key={post._id || index} style={{ position: 'relative' }}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', border: '2px solid #e5e7eb' }}>
                   <button 
-                    onClick={() => toggleReportOptions(post._id)}
-                    style={{ 
-                      background: 'none', 
-                      border: 'none', 
-                      color: '#666', 
+                    onClick={() => setPostFilter('recommended')}
+                    style={{
+                      padding: '8px 16px',
+                      border: 'none',
+                      background: postFilter === 'recommended' ? 'linear-gradient(135deg, #667eea 0%, #22c55e 100%)' : '#f9fafb',
+                      color: postFilter === 'recommended' ? 'white' : '#374151',
+                      fontWeight: 600,
                       cursor: 'pointer',
-                      fontSize: '16px',
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      backgroundColor: reportingPost === post._id ? '#f0f0f0' : 'transparent'
+                      fontSize: '14px'
                     }}
                   >
-                    ⚠️
+                    🎯 Recommended
+                  </button>
+                  <button 
+                    onClick={() => setPostFilter('friends')}
+                    style={{
+                      padding: '8px 16px',
+                      border: 'none',
+                      background: postFilter === 'friends' ? 'linear-gradient(135deg, #667eea 0%, #22c55e 100%)' : '#f9fafb',
+                      color: postFilter === 'friends' ? 'white' : '#374151',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    👥 Friends
+                  </button>
+                  <button 
+                    onClick={() => setPostFilter('all')}
+                    style={{
+                      padding: '8px 16px',
+                      border: 'none',
+                      background: postFilter === 'all' ? 'linear-gradient(135deg, #667eea 0%, #22c55e 100%)' : '#f9fafb',
+                      color: postFilter === 'all' ? 'white' : '#374151',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    🌐 All Posts
                   </button>
                 </div>
-                {reportingPost === post._id && showReportOptions && (
-                  <div style={{ 
-                    position: 'absolute',
-                    top: '40px',
-                    right: '16px',
-                    backgroundColor: 'white',
-                    border: '1px solid #ccc',
+                <button 
+                  onClick={fetchPosts} 
+                  style={{
+                    padding: '8px 18px',
                     borderRadius: '4px',
-                    padding: '8px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                    zIndex: 1000,
-                    minWidth: '150px'
-                  }}>
-                    <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '8px' }}>Report Post:</div>
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #22c55e 0%, #667eea 100%)',
+                    color: 'white',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(34,197,94,0.10)'
+                  }}
+                >
+                  🔄 Refresh
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <h3>
+            {postFilter === 'recommended' && '🎯 Recommended Posts'}
+            {postFilter === 'friends' && '👥 Friends Posts'}
+            {postFilter === 'all' && '🌐 All Posts'}
+          </h3>
+          {error && <div style={{ color: 'red', marginBottom: 16 }}>{error}</div>}
+          {loading ? <div>Loading...</div> : (
+            <div id="posts-container">
+              {posts.filter(post => post.user && post.user._id !== myId).length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                  <h4>
+                    {postFilter === 'recommended' && 'No recommendations yet'}
+                    {postFilter === 'friends' && 'No friends posts yet'}
+                    {postFilter === 'all' && 'No posts available'}
+                  </h4>
+                  <p>
+                    {postFilter === 'recommended' && 'Start interacting with posts (like, comment, create) to get personalized recommendations!'}
+                    {postFilter === 'friends' && 'Add some friends or wait for them to create posts!'}
+                    {postFilter === 'all' && 'Be the first to create a post!'}
+                  </p>
+                </div>
+              ) : (
+                posts.filter(post => post.user && post.user._id !== myId).map((post, index) => (
+                <div className="card" key={post._id || index} style={{ position: 'relative' }}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
                     <button 
-                      onClick={() => handleReportPost(post._id, 'Inappropriate content')}
+                      onClick={() => toggleReportOptions(post._id)}
                       style={{ 
-                        display: 'block',
-                        width: '100%',
-                        textAlign: 'left',
-                        background: 'none',
-                        border: 'none',
-                        padding: '4px 8px',
+                        background: 'none', 
+                        border: 'none', 
+                        color: '#666', 
                         cursor: 'pointer',
-                        fontSize: '12px'
+                        fontSize: '16px',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: reportingPost === post._id ? '#f0f0f0' : 'transparent'
                       }}
                     >
-                      Inappropriate content
-                    </button>
-                    <button 
-                      onClick={() => handleReportPost(post._id, 'Spam')}
-                      style={{ 
-                        display: 'block',
-                        width: '100%',
-                        textAlign: 'left',
-                        background: 'none',
-                        border: 'none',
-                        padding: '4px 8px',
-                        cursor: 'pointer',
-                        fontSize: '12px'
-                      }}
-                    >
-                      Spam
-                    </button>
-                    <button 
-                      onClick={() => handleReportPost(post._id, 'Harassment')}
-                      style={{ 
-                        display: 'block',
-                        width: '100%',
-                        textAlign: 'left',
-                        background: 'none',
-                        border: 'none',
-                        padding: '4px 8px',
-                        cursor: 'pointer',
-                        fontSize: '12px'
-                      }}
-                    >
-                      Harassment
-                    </button>
-                    <button 
-                      onClick={() => handleReportPost(post._id, 'Other')}
-                      style={{ 
-                        display: 'block',
-                        width: '100%',
-                        textAlign: 'left',
-                        background: 'none',
-                        border: 'none',
-                        padding: '4px 8px',
-                        cursor: 'pointer',
-                        fontSize: '12px'
-                      }}
-                    >
-                      Other
+                      ⚠️
                     </button>
                   </div>
-                )}
-                <div className="post-header" onClick={(e) => handleUserClick(e, post.user)}>
-                  {post.user && post.user.profilePicture && (
-                    <img
-                      src={
-                        post.user.profilePicture.startsWith('/uploads')
-                          ? BACKEND_URL + post.user.profilePicture
-                          : post.user.profilePicture
-                      }
-                      alt="Profile"
-                      style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', marginRight: 8 }}
+                  {reportingPost === post._id && showReportOptions && (
+                    <div style={{ 
+                      position: 'absolute',
+                      top: '40px',
+                      right: '16px',
+                      backgroundColor: 'white',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px',
+                      padding: '8px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                      zIndex: 1000,
+                      minWidth: '150px'
+                    }}>
+                      <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '8px' }}>Report Post:</div>
+                      <button 
+                        onClick={() => handleReportPost(post._id, 'Inappropriate content')}
+                        style={{ 
+                          display: 'block',
+                          width: '100%',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          padding: '4px 8px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}
+                      >
+                        Inappropriate content
+                      </button>
+                      <button 
+                        onClick={() => handleReportPost(post._id, 'Spam')}
+                        style={{ 
+                          display: 'block',
+                          width: '100%',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          padding: '4px 8px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}
+                      >
+                        Spam
+                      </button>
+                      <button 
+                        onClick={() => handleReportPost(post._id, 'Harassment')}
+                        style={{ 
+                          display: 'block',
+                          width: '100%',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          padding: '4px 8px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}
+                      >
+                        Harassment
+                      </button>
+                      <button 
+                        onClick={() => handleReportPost(post._id, 'Other')}
+                        style={{ 
+                          display: 'block',
+                          width: '100%',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          padding: '4px 8px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}
+                      >
+                        Other
+                      </button>
+                    </div>
+                  )}
+                  <div className="post-header" onClick={(e) => handleUserClick(e, post.user)}>
+                    {post.user && post.user.profilePicture && (
+                      <img
+                        src={
+                          post.user.profilePicture.startsWith('/uploads')
+                            ? BACKEND_URL + post.user.profilePicture
+                            : post.user.profilePicture
+                        }
+                        alt="Profile"
+                        style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', marginRight: 8 }}
+                      />
+                    )}
+                    <h4>{post.user ? `${post.user.firstName} ${post.user.lastName}` : 'Unknown'}</h4>
+                  </div>
+                  <p>{post.content}</p>
+                  {post.image && (
+                    <img 
+                      src={post.image.startsWith('/uploads') ? BACKEND_URL + post.image : post.image} 
+                      alt="Post" 
+                      style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 8, marginBottom: 8 }} 
                     />
                   )}
-                  <h4>{post.user ? `${post.user.firstName} ${post.user.lastName}` : 'Unknown'}</h4>
+                  <div className="actions">
+                    <button onClick={() => handleLike(post._id)}>
+                      {post.likes && post.likes.includes(myId) ? 'Unlike' : 'Like'} ({post.likes ? post.likes.length : 0})
+                    </button>
+                    <button>
+                      <span>{post.comments ? post.comments.length : 0} Comments</span>
+                    </button>
+                    {myId && post.user && post.user._id === myId && (
+                      <button onClick={() => handleDelete(post._id)} style={{ color: 'red' }}>Delete</button>
+                    )}
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <input
+                      type="text"
+                      value={commentText[post._id] || ''}
+                      onChange={e => setCommentText(prev => ({ ...prev, [post._id]: e.target.value }))}
+                      placeholder="Add a comment..."
+                      style={{ width: '80%' }}
+                    />
+                    <button onClick={() => handleComment(post._id)}>Comment</button>
+                  </div>
                 </div>
-                <p>{post.content}</p>
-                {post.image && (
-                  <img 
-                    src={post.image.startsWith('/uploads') ? BACKEND_URL + post.image : post.image} 
-                    alt="Post" 
-                    style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 8, marginBottom: 8 }} 
-                  />
-                )}
-                <div className="actions">
-                  <button onClick={() => handleLike(post._id)}>
-                    {post.likes && post.likes.includes(myId) ? 'Unlike' : 'Like'} ({post.likes ? post.likes.length : 0})
-                  </button>
-                  <button>
-                    <span>{post.comments ? post.comments.length : 0} Comments</span>
-                  </button>
-                  {myId && post.user && post.user._id === myId && (
-                    <button onClick={() => handleDelete(post._id)} style={{ color: 'red' }}>Delete</button>
-                  )}
-                </div>
-                <div style={{ marginTop: 8 }}>
-                  <input
-                    type="text"
-                    value={commentText[post._id] || ''}
-                    onChange={e => setCommentText(prev => ({ ...prev, [post._id]: e.target.value }))}
-                    placeholder="Add a comment..."
-                    style={{ width: '80%' }}
-                  />
-                  <button onClick={() => handleComment(post._id)}>Comment</button>
-                </div>
+              ))
+              )}
+            </div>
+          )}
+          
+          {selectedUser && (
+            <ProfilePopup
+              user={selectedUser}
+              position={popupPosition}
+              onClose={handleClosePopup}
+              onAddFriend={handleAddFriend}
+            />
+          )}
+          <CreatePostModal
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            onSubmit={handleModalSubmit}
+          />
+        </div>
+
+        {/* Notification Sidebar */}
+        <div
+          style={{
+            width: 320,
+            minWidth: 220,
+            maxWidth: 340,
+            background: '#f8fafc',
+            borderLeft: '1.5px solid #e5e7eb',
+            padding: '0 0 0 0',
+            marginLeft: 'auto',
+            height: 'calc(100vh - 32px)',
+            position: 'sticky',
+            top: 16,
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 2px 12px rgba(39,174,96,0.04)',
+            borderRadius: '0 18px 18px 0'
+          }}
+        >
+          <div style={{
+            padding: '18px 24px 10px 24px',
+            fontWeight: 700,
+            fontSize: 18,
+            borderBottom: '1.5px solid #e5e7eb',
+            background: '#fff',
+            borderTopRightRadius: 18
+          }}>
+            Notifications
+          </div>
+          <div
+            style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: '8px 0',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 0
+            }}
+          >
+            {notifications.length === 0 ? (
+              <div style={{ color: '#aaa', textAlign: 'center', marginTop: 32, fontStyle: 'italic' }}>
+                No notifications yet.
               </div>
-            ))
+            ) : (
+              notifications.map((notif, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    background: idx % 2 === 0 ? '#f4f8fb' : '#eafaf1',
+                    margin: '0 12px 10px 12px',
+                    borderRadius: 10,
+                    padding: '14px 16px 10px 16px',
+                    boxShadow: '0 1px 4px rgba(39,174,96,0.04)',
+                    fontSize: 15,
+                    color: '#222',
+                    fontWeight: 500,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4
+                  }}
+                >
+                  <span>{notif.message}</span>
+                  <span style={{ fontSize: 12, color: '#888', alignSelf: 'flex-end' }}>
+                    {notif.date}
+                  </span>
+                </div>
+              ))
             )}
           </div>
-        )}
-        
-        {selectedUser && (
-          <ProfilePopup
-            user={selectedUser}
-            position={popupPosition}
-            onClose={handleClosePopup}
-            onAddFriend={handleAddFriend}
-          />
-        )}
-        <CreatePostModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onSubmit={handleModalSubmit}
-        />
+        </div>
       </div>
     </div>
   );
 };
 
-export default Dashboard; 
+export default Dashboard;

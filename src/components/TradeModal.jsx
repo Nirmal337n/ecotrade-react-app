@@ -31,58 +31,54 @@ const TradeModal = ({ isOpen, onClose, product, onTradeCreated }) => {
   }, [product]);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!token) return;
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const tradeData = {
-        productId: product._id,
-        tradeType,
-        amount: tradeType === 'sale' ? parseFloat(amount) : null,
-        message
-      };
-
-      if (isAuction) {
-        tradeData.isAuction = true;
-        tradeData.auctionSettings = {
-          startingPrice: parseFloat(auctionSettings.startingPrice),
-          reservePrice: auctionSettings.reservePrice ? parseFloat(auctionSettings.reservePrice) : null,
-          auctionEndDate: new Date(auctionSettings.auctionEndDate),
-          autoAcceptPrice: auctionSettings.autoAcceptPrice ? parseFloat(auctionSettings.autoAcceptPrice) : null,
-          allowCounterOffers: auctionSettings.allowCounterOffers
-        };
-      }
-
-      const res = await fetch(`${API_BASE_URL}/trades`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(tradeData)
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || 'Failed to create trade');
-      }
-
-      const trade = await res.json();
-      onTradeCreated(trade);
-      onClose();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
+          {isAuction && (
+            <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+              <h4>Auction Settings</h4>
+              <div style={{ marginBottom: '10px' }}>
+                <label>
+                  <strong>Reserve Price (NPR):</strong>
+                  <input
+                    type="number"
+                    value={auctionSettings.reservePrice}
+                    onChange={(e) => setAuctionSettings(prev => ({ ...prev, reservePrice: e.target.value }))}
+                    placeholder="Minimum price you'll accept (optional)"
+                    style={{ width: '100%', padding: '8px', marginTop: '5px' }}
+                  />
+                </label>
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <label>
+                  <strong>Auction End Date:</strong>
+                  <input
+                    type="datetime-local"
+                    value={auctionSettings.auctionEndDate}
+                    onChange={(e) => setAuctionSettings(prev => ({ ...prev, auctionEndDate: e.target.value }))}
+                    style={{ width: '100%', padding: '8px', marginTop: '5px' }}
+                  />
+                </label>
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <label>
+                  <strong>Auto-Accept Price (NPR):</strong>
+                  <input
+                    type="number"
+                    value={auctionSettings.autoAcceptPrice}
+                    onChange={(e) => setAuctionSettings(prev => ({ ...prev, autoAcceptPrice: e.target.value }))}
+                    placeholder="Automatically accept offers at this price (optional)"
+                    style={{ width: '100%', padding: '8px', marginTop: '5px' }}
+                  />
+                </label>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={auctionSettings.allowCounterOffers}
+                  onChange={(e) => setAuctionSettings(prev => ({ ...prev, allowCounterOffers: e.target.checked }))}
+                />
+                Allow counter offers from seller
+              </label>
+            </div>
+          )}
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 

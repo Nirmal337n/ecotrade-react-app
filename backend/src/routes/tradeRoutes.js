@@ -421,13 +421,13 @@ router.get('/', auth, async (req, res) => {
     if (filter === 'active') {
         query.status = { $in: ['pending', 'agreed', 'in_progress', 'auction_active', 'negotiating'] };
     } else if (filter === 'history') {
-        query.status = { $in: ['completed', 'rejected', 'cancelled', 'auction_ended', 'disputed'] };
+        query.status = { $in: ['completed', 'rejected', 'cancelled', 'auction_ended', 'disputed', 'accepted'] };
     }
 
     const trades = await Trade.find(query)
       .populate('buyer', 'firstName lastName')
       .populate('seller', 'firstName lastName')
-      .populate('product', 'title')
+      .populate('product', 'title type minimum_price condition location brand subcategory sell_price')
       .populate('exchangedProduct', 'title')
       .sort({ createdAt: -1 });
 
@@ -803,10 +803,17 @@ router.post('/:id/respond', auth, async (req, res) => {
     }
     
     const oldStatus = trade.status;
-    trade.status = response === 'accepted' ? 'agreed' : 'rejected';
-    
+    if (response === 'accepted') {
+      trade.status = 'accepted';
+      trade.agreedAt = new Date();
+    } else {
+      trade.status = 'rejected';
+      trade.rejectedAt = new Date();
+      trade.rejectedBy = req.user._id;
+    }
+
     await trade.save();
-    
+
     // Create a notification for the buyer
     await Notification.create({
         recipient: trade.buyer,

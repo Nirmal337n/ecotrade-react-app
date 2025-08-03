@@ -40,6 +40,7 @@ router.post('/request', auth, async (req, res) => {
     if (!recipient) {
       return res.status(404).json({ message: 'User not found' });
     }
+
     
     // Check if friend request already exists
     const existingRequest = await Friend.findOne({
@@ -332,18 +333,35 @@ router.get('/requests/sent', auth, async (req, res) => {
 // Get friends list
 router.get('/friends', auth, async (req, res) => {
   try {
+    if (!req.user || !req.user._id) {
+      console.error('No user found in request');
+      return res.status(401).json({ message: 'Unauthorized: No user found' });
+    }
+
+    // Fetch the user and populate friends and requests
     const user = await User.findById(req.user._id)
       .populate('friends', 'firstName lastName profilePicture email bio')
       .populate('friendRequestsReceived', 'firstName lastName profilePicture email')
       .populate('friendRequestsSent', 'firstName lastName profilePicture email');
-    
+
+    if (!user) {
+      console.error('User not found in database');
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Debug log
+    console.log('Friends:', user.friends);
+    console.log('Requests Received:', user.friendRequestsReceived);
+    console.log('Requests Sent:', user.friendRequestsSent);
+
     res.json({
-      friends: user.friends,
-      requestsReceived: user.friendRequestsReceived,
-      requestsSent: user.friendRequestsSent
+      friends: user.friends || [],
+      requestsReceived: user.friendRequestsReceived || [],
+      requestsSent: user.friendRequestsSent || []
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Error fetching friends:', err);
+    res.status(500).json({ message: 'Failed to fetch friends data', error: err.message });
   }
 });
 
@@ -351,30 +369,131 @@ router.get('/friends', auth, async (req, res) => {
 router.get('/search', auth, async (req, res) => {
   try {
     const { query } = req.query;
+    const user = await User.findById(req.user._id);
+
+    // Build exclusion list - exclude self, blocked users, and pending requests
+    const excludeIds = [
+      req.user._id,
+      ...user.blockedUsers,
+      ...user.friendRequestsSent,
+      ...user.friendRequestsReceived
+    ];
+
+    let users = [];
+    let recommended = [];
+
+    if (query && query.length >= 2) {
+      // Enhanced search with exact and similar matches
+      const exactMatches = await User.find({
+        _id: { $nin: excludeIds },
+        $or: [
+          { firstName: { $regex: `^${query}$`, $options: 'i' } },
+          { lastName: { $regex: `^${query}$`, $options: 'i' } },
+          { email: { $regex: `^${query}$`, $options: 'i' } },
+          { $expr: { $regexMatch: { input: { $concat: ['$firstName', ' ', '$lastName'] }, regex: `^${query}$`, options: 'i' } } }
+        ]
+      }).select('firstName lastName profilePicture email bio interests');
+
+      const similarMatches = await User.find({
+        _id: { $nin: excludeIds },
+        $or: [
+          { firstName: { $regex: query, $options: 'i' } },
+          { lastName: { $regex: query, $options: 'i' } },
+          { email: { $regex: query, $options: 'i' } },
+          { $expr: { $regexMatch: { input: { $concat: ['$firstName', ' ', '$lastName'] }, regex: query, options: 'i' } } }
+        ],
+        $and: [
+          {
+            $not: {
+              $or: [
+                { firstName: { $regex: `^${query}$`, $options: 'i' } },
+                { lastName: { $regex: `^${query}$`, $options: 'i' } },
+                { email: { $regex: `^${query}$`, $options: 'i' } },
+                { $expr: { $regexMatch: { input: { $concat: ['$firstName', ' ', '$lastName'] }, regex: `^${query}$`, options: 'i' } } }
+              ]
+            }
+          }
+        ]
+      }).select('firstName lastName profilePicture email bio interests');
+
+      // Combine exact matches first, then similar matches
+      const allUsers = [...exactMatches, ...similarMatches].slice(0, 20);
+      
+      // Add friendship status to each user
+      users = allUsers.map(user => {
+        const userObj = user.toObject();
+        // Check friendship status from current user's perspective - FIXED
+        // Check if current user has this user as a friend
+        if (user.friends && user.friends.includes(req.user._id)) {
+          userObj.friendshipStatus = 'friends';
+        } else if (user.friendRequestsSent && user.friendRequestsSent.includes(req.user._id)) {
+          userObj.friendshipStatus = 'request_sent';
+        } else if (user.friendRequestsReceived && user.friendRequestsReceived.includes(req.user._id)) {
+          userObj.friendshipStatus = 'request_received';
+        } else {
+          userObj.friendshipStatus = 'none';
+        }
+        return userObj;
+      });
+    }
+
+    // Recommend users with at least one common interest
+    if (user.interests && user.interests.length > 0) {
+      const recQuery = {
+        _id: { $nin: excludeIds },
+        interests: { $in: user.interests }
+      };
+      // If searching, don't recommend users already in search results
+      if (users.length > 0) {
+        recQuery._id.$nin = [...excludeIds, ...users.map(u => u._id)];
+      }
+      recommended = await User.find(recQuery)
+        .select('firstName lastName profilePicture email bio interests')
+        .limit(10);
+    }
+
+    if (query && query.length >= 2) {
+      return res.json({ users, recommended });
+    } else {
+      // If no query, just return recommended
+      return res.json({ recommended });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Cancel friend request
+router.post('/cancel-request', auth, async (req, res) => {
+  try {
+    const { recipientId } = req.body;
     
-    if (!query || query.length < 2) {
-      return res.status(400).json({ message: 'Search query must be at least 2 characters' });
+    if (!recipientId) {
+      return res.status(400).json({ message: 'Recipient ID is required' });
     }
     
-    const user = await User.findById(req.user._id);
+    // Find and remove the friend request
+    const friendRequest = await Friend.findOneAndDelete({
+      sender: req.user._id,
+      recipient: recipientId,
+      status: 'pending'
+    });
     
-    const searchQuery = {
-      _id: { 
-        $ne: req.user._id,
-        $nin: [...user.friends, ...user.blockedUsers, ...user.friendRequestsSent, ...user.friendRequestsReceived]
-      },
-      $or: [
-        { firstName: { $regex: query, $options: 'i' } },
-        { lastName: { $regex: query, $options: 'i' } },
-        { email: { $regex: query, $options: 'i' } }
-      ]
-    };
+    if (!friendRequest) {
+      return res.status(404).json({ message: 'Friend request not found or already processed' });
+    }
     
-    const users = await User.find(searchQuery)
-      .select('firstName lastName profilePicture email bio')
-      .limit(20);
+    // Remove from user's sent requests
+    await User.findByIdAndUpdate(req.user._id, {
+      $pull: { friendRequestsSent: recipientId }
+    });
     
-    res.json(users);
+    // Remove from recipient's received requests
+    await User.findByIdAndUpdate(recipientId, {
+      $pull: { friendRequestsReceived: req.user._id }
+    });
+    
+    res.json({ message: 'Friend request cancelled successfully' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

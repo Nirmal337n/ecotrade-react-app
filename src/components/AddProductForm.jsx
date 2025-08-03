@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 
 const AddProductForm = ({ onSubmit, categories = [] }) => {
+  // Example subcategories and brands for demonstration
+  const [subcategories, setSubcategories] = useState([]);
+  const [brands, setBrands] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     type: 'sell',
@@ -13,15 +16,48 @@ const AddProductForm = ({ onSubmit, categories = [] }) => {
     payment: '',
     description: '',
     productGroup: '',
+
     minimum_price: '',
     valid_till: '',
     tags: [],
+    category: '',
+    subcategory: '',
+    brand: '',
     contactInfo: {
       phone: '',
       email: '',
       preferredContact: 'message'
     }
   });
+  // Example: update subcategories and brands when category changes
+  React.useEffect(() => {
+    // You can replace this with real data fetching logic
+    if (formData.category === 'electronics') {
+      setSubcategories([
+        { value: 'mobile', label: 'Mobile Phones' },
+        { value: 'laptop', label: 'Laptops' },
+        { value: 'tv', label: 'Televisions' }
+      ]);
+      setBrands([
+        { value: 'samsung', label: 'Samsung' },
+        { value: 'apple', label: 'Apple' },
+        { value: 'sony', label: 'Sony' }
+      ]);
+    } else if (formData.category === 'furniture') {
+      setSubcategories([
+        { value: 'sofa', label: 'Sofas' },
+        { value: 'table', label: 'Tables' },
+        { value: 'chair', label: 'Chairs' }
+      ]);
+      setBrands([
+        { value: 'local', label: 'Local' },
+        { value: 'ikea', label: 'IKEA' }
+      ]);
+    } else {
+      setSubcategories([]);
+      setBrands([]);
+    }
+  }, [formData.category]);
 
   const [images, setImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
@@ -52,7 +88,9 @@ const AddProductForm = ({ onSubmit, categories = [] }) => {
     } else {
       setFormData(prev => ({
         ...prev,
-        [name]: value
+        [name]: value,
+        // Reset subcategory and brand if category changes
+        ...(name === 'category' ? { subcategory: '', brand: '' } : {})
       }));
     }
 
@@ -130,6 +168,7 @@ const AddProductForm = ({ onSubmit, categories = [] }) => {
     }));
   };
 
+
   return (
     <form onSubmit={handleSubmit}>
       <div className="fb-post-row">
@@ -155,21 +194,57 @@ const AddProductForm = ({ onSubmit, categories = [] }) => {
         </select>
       </div>
 
+      {/* Category Dropdown */}
       <div className="fb-post-row">
-        <select 
-          name="productGroup" 
-          value={formData.productGroup} 
-          onChange={handleInputChange} 
-          className="fb-select" 
+        <select
+          name="category"
+          value={formData.category}
+          onChange={handleInputChange}
+          className="fb-select"
           required
         >
           <option value="">Select Category</option>
-          {categories.map(category => (
-            <option key={category._id} value={category._id}>
-              {category.name}
+          {/* If categories prop is provided, use it, else show some demo categories */}
+          {(categories.length > 0 ? categories.map(category => (
+            <option key={category._id || category.value} value={category._id || category.value}>
+              {category.name || category.label}
             </option>
+          )) : [
+            <option key="electronics" value="electronics">Electronics</option>,
+            <option key="furniture" value="furniture">Furniture</option>,
+            <option key="fashion" value="fashion">Fashion</option>
+          ])}
+        </select>
+
+        {/* Subcategory Dropdown */}
+        <select
+          name="subcategory"
+          value={formData.subcategory}
+          onChange={handleInputChange}
+          className="fb-select"
+          disabled={!formData.category || subcategories.length === 0}
+          required
+        >
+          <option value="">Select Subcategory</option>
+          {subcategories.map(sub => (
+            <option key={sub.value} value={sub.value}>{sub.label}</option>
           ))}
         </select>
+
+        {/* Brand Dropdown */}
+        <select
+          name="brand"
+          value={formData.brand}
+          onChange={handleInputChange}
+          className="fb-select"
+          disabled={!formData.category || brands.length === 0}
+        >
+          <option value="">Select Brand (optional)</option>
+          {brands.map(brand => (
+            <option key={brand.value} value={brand.value}>{brand.label}</option>
+          ))}
+        </select>
+
         <select 
           name="condition" 
           value={formData.condition} 
@@ -251,7 +326,7 @@ const AddProductForm = ({ onSubmit, categories = [] }) => {
         )}
         {formData.type === 'sell' && formData.sell_price && formData.minimum_price && (
           <div style={{ 
-            fontSize: '12px', 
+            fontSize: '14px', 
             color: parseFloat(formData.minimum_price) <= parseFloat(formData.sell_price) ? '#2ecc71' : '#e74c3c',
             marginTop: '5px',
             display: 'flex',

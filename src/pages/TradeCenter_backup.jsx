@@ -262,33 +262,18 @@ const TradeCenter = () => {
     const fetchTrades = async () => {
         try {
             setLoading(true);
-            setError(''); // Clear previous error before fetching
-
-            // Try the intended endpoint first
-            let res = await fetch(`${API_BASE_URL}/trades/my-trades`, {
+            const res = await fetch(`${API_BASE_URL}/trades/my-trades`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-
-            // If 404 or 500, fallback to /trades?mine=true (if your backend supports it)
-            if (!res.ok && (res.status === 404 || res.status === 500)) {
-                res = await fetch(`${API_BASE_URL}/trades?mine=true`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-            }
-
-            if (!res.ok) {
-                const errorText = await res.text();
-                console.error('Failed to fetch trades:', res.status, errorText);
-                setError('Unable to load trades. Please try again later.');
-                return;
-            }
+            
+            if (!res.ok) throw new Error('Failed to fetch trades');
+            
             const data = await res.json();
             setSales(data.sales || []);
             setOffers(data.offers || []);
             setHistory(data.history || []);
         } catch (error) {
-            setError('Unable to load trades. Please check your connection or try again later.');
-            console.error('Fetch trades error:', error);
+            setError(error.message);
         } finally {
             setLoading(false);
         }
@@ -333,31 +318,7 @@ const TradeCenter = () => {
 
     const renderContent = () => {
         if (loading) return <div style={{ textAlign: 'center', padding: 40 }}>Loading trades...</div>;
-        if (error) return (
-            <div
-                style={{
-                    maxWidth: 420,
-                    margin: '32px auto',
-                    background: '#fff6f6',
-                    border: '1.5px solid #e74c3c',
-                    color: '#e74c3c',
-                    borderRadius: 14,
-                    boxShadow: '0 2px 12px rgba(231,76,60,0.07)',
-                    padding: '24px 28px',
-                    fontWeight: 600,
-                    fontSize: 16,
-                    overflowY: 'auto',
-                    maxHeight: 180,
-                    textAlign: 'center',
-                    lineHeight: 1.5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                }}
-            >
-                <span style={{ flex: 1, overflowWrap: 'break-word' }}>{error}</span>
-            </div>
-        );
+        if (error) return <div style={{ textAlign: 'center', padding: 40, color: '#e74c3c' }}>Error: {error}</div>;
 
         switch (activeTab) {
             case 'sales':

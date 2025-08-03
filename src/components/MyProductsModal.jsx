@@ -179,74 +179,37 @@ const MyProductsModal = ({ onClose, onProductClick }) => {
               <p>You haven't posted any products yet.</p>
             </div>
           ) : (
-            <div className="products-grid">
-              {filteredProducts.map(product => (
-                <div key={product._id} className="product-card" onClick={() => onProductClick && onProductClick(product._id)}>
-                  <div className="product-image-container">
-                    <img 
-                      src={getImageUrl(product.primaryImage)} 
-                      alt={product.title}
-                      className="product-image"
-                      onError={(e) => {
-                        e.target.src = '/assets/images/reuse.png';
-                      }}
-                    />
-                    <div className="product-type-badge" style={{ backgroundColor: getTypeColor(product.type) }}>
-                      {getTypeText(product.type)}
-                    </div>
-                    <div className="product-condition-badge" style={{ backgroundColor: getConditionColor(product.condition) }}>
-                      {getConditionText(product.condition)}
-                    </div>
-                  </div>
-
-                  <div className="product-info">
-                    <h3 className="product-title">{product.title}</h3>
-                    
-                    <div className="product-meta">
-                      <div className="meta-item">
-                        <FaCalendar className="meta-icon" />
-                        <span>{formatDate(product.createdAt)}</span>
-                      </div>
-                      <div className="meta-item">
-                        <FaMapMarkerAlt className="meta-icon" />
-                        <span>{product.location}</span>
-                      </div>
-                    </div>
-
-                    {product.sell_price && (
-                      <div className="product-price">
-                        <FaTag className="price-icon" />
-                        <span className="price-amount">NPR {product.sell_price}</span>
-                      </div>
-                    )}
-
-                    {product.desired_item && (
-                      <div className="desired-item">
-                        <span className="desired-label">Desired:</span>
-                        <span className="desired-text">{product.desired_item}</span>
-                      </div>
-                    )}
-
-                    <div className="product-stats">
-                      <div className="stat-item">
-                        <FaHeart className="stat-icon" />
-                        <span>{product.likes ? product.likes.length : 0}</span>
-                      </div>
-                      <div className="stat-item">
-                        <FaComment className="stat-icon" />
-                        <span>{product.comments ? product.comments.length : 0}</span>
-                      </div>
-                    </div>
-
-                    <div className="product-actions">
-                      <button className="action-button view-button">
-                        <FaEye />
-                        <span>View Details</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div style={{overflowX: 'auto', marginBottom: 24}}>
+              <table className="my-products-table" style={{width: '100%', borderCollapse: 'collapse'}}>
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Type</th>
+                    <th>Price</th>
+                    <th>Condition</th>
+                    <th>Location</th>
+                    <th>Brand</th>
+                    <th>Subcategory</th>
+                    <th>Description</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredProducts.map(product => (
+                    <tr key={product._id} style={{cursor: 'pointer'}} onClick={() => onProductClick && onProductClick(product._id)}>
+                      <td>{product.title}</td>
+                      <td>{getTypeText(product.type)}</td>
+                      <td>{product.sell_price ? `NPR ${product.sell_price}` : (product.desired_item || '-')}</td>
+                      <td>{getConditionText(product.condition)}</td>
+                      <td>{product.location}</td>
+                      <td>{product.brand || '-'}</td>
+                      <td>{product.subcategory || '-'}</td>
+                      <td style={{maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{product.description || '-'}</td>
+                      <td>{formatDate(product.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

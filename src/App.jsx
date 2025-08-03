@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Marketplace from './pages/Marketplace';
 import ProductDetails from './pages/ProductDetails';
@@ -12,7 +12,7 @@ import './App.css';
 
 function App() {
     return (
-        <Router>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <div className="app-container">
                 <main className="main-content">
                     <Routes>
@@ -35,7 +35,7 @@ function App() {
                     </Routes>
                 </main>
             </div>
-        </Router>
+        </BrowserRouter>
     );
 }
 

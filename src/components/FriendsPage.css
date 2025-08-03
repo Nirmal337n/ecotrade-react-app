@@ -657,6 +657,86 @@
   background-color: #218838;
 }
 
+/* Exact and Similar Match Styles */
+.exact-matches,
+.similar-matches {
+  margin-bottom: 30px;
+}
+
+.exact-matches h3,
+.similar-matches h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 1.3rem;
+}
+
+.match-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.match-badge.exact {
+  background-color: #28a745;
+  color: white;
+}
+
+.match-badge.similar {
+  background-color: #ffc107;
+  color: #333;
+}
+
+.exact-match {
+  border-left: 4px solid #28a745 !important;
+  background-color: #f8fff8 !important;
+}
+
+.similar-match {
+  border-left: 4px solid #ffc107 !important;
+  background-color: #fffef8 !important;
+}
+
+.exact-match:hover {
+  box-shadow: 0 4px 15px rgba(40, 167, 69, 0.2) !important;
+}
+
+.similar-match:hover {
+  box-shadow: 0 4px 15px rgba(255, 193, 7, 0.2) !important;
+}
+
+/* Status Badges */
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 100px;
+  text-align: center;
+}
+
+.status-badge.sent {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.status-badge.received {
+  background-color: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
 /* Request Message Display */
 .request-message {
   margin-top: 8px;
@@ -709,4 +789,22 @@
     flex: 1;
     min-width: 60px;
   }
+}
+
+.search-input.long-input {
+  width: 400px;
+  max-width: 90%;
+  font-size: 1.1rem;
+  padding: 12px 18px;
+}
+
+.recommended-results {
+  margin-top: 32px;
+  border-top: 1px solid #eee;
+  padding-top: 18px;
+}
+
+.recommended-results h3 {
+  color: #007bff;
+  margin-bottom: 16px;
 }
